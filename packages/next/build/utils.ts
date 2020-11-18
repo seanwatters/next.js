@@ -607,7 +607,9 @@ export async function buildStaticPaths(
     // For the object-provided path, we must make sure it specifies all
     // required keys.
     else {
-      const invalidKeys = Object.keys(entry).filter((key) => key !== 'params')
+      const invalidKeys = Object.keys(entry).filter(
+        (key) => !(key === 'params' || key === 'sitemap')
+      )
       if (invalidKeys.length) {
         throw new Error(
           `Additional keys were returned from \`getStaticPaths\` in page "${page}". ` +
@@ -672,6 +674,7 @@ export async function isPageStatic(
   isStatic?: boolean
   isAmpOnly?: boolean
   isHybridAmp?: boolean
+  sitemapEntry?: string
   hasServerProps?: boolean
   hasStaticProps?: boolean
   prerenderRoutes?: string[] | undefined
@@ -758,11 +761,18 @@ export async function isPageStatic(
       } = await buildStaticPaths(page, mod.getStaticPaths))
     }
 
+    // SEAN
     const config = mod.config || {}
+    const sitemapEntry = genSitemapEntry({
+      ...(config.sitemap || {}),
+      loc: page,
+    })
+
     return {
       isStatic: !hasStaticProps && !hasGetInitialProps && !hasServerProps,
       isHybridAmp: config.amp === 'hybrid',
       isAmpOnly: config.amp === true,
+      sitemapEntry: sitemapEntry,
       prerenderRoutes,
       prerenderFallback,
       hasStaticProps,
@@ -796,4 +806,59 @@ export function getNamedExports(
 ): Array<string> {
   require('../next-server/lib/runtime-config').setConfig(runtimeEnvConfig)
   return Object.keys(require(bundle))
+}
+
+// SEAN
+interface SitemapEntry {
+  loc: string
+  lastmod?: string
+  changefreq?: string
+  priority?: number
+}
+
+export function genSitemapEntry({
+  loc,
+  lastmod,
+  changefreq,
+  priority,
+}: SitemapEntry) {
+  return `
+  <url>
+    <loc>example.com${loc}</loc>${
+    lastmod
+      ? `
+    <lastmod>${lastmod}</lastmod>`
+      : ''
+  }${
+    changefreq
+      ? `
+    <cangefreq>${changefreq}</changefreq>`
+      : ''
+  }${
+    priority
+      ? `
+    <priority>${priority}</priority>`
+      : ''
+  }
+  </url>`
+}
+
+export function genSitemap(entries: Array<string>) {
+  return `
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset 
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+  xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
+>
+  ${entries
+    .map(
+      (entry: string) => `
+  ${entry}
+  `
+    )
+    .join()}
+</urlset>`
 }

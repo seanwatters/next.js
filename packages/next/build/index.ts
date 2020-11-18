@@ -71,6 +71,7 @@ import {
   PageInfo,
   printCustomRoutes,
   printTreeView,
+  /* genSitemap */
 } from './utils'
 import getBaseWebpackConfig from './webpack-config'
 import { PagesManifest } from './webpack/plugins/pages-manifest-plugin'
@@ -469,6 +470,7 @@ export default async function build(
   const ssgStaticFallbackPages = new Set<string>()
   const ssgBlockingFallbackPages = new Set<string>()
   const staticPages = new Set<string>()
+  const sitemapEntries = new Set<string>()
   const invalidPages = new Set<string>()
   const hybridAmpPages = new Set<string>()
   const serverPropsPages = new Set<string>()
@@ -564,6 +566,10 @@ export default async function build(
             runtimeEnvConfig
           )
 
+          if (workerResult.sitemapEntry) {
+            sitemapEntries.add(workerResult.sitemapEntry)
+          }
+
           if (workerResult.isHybridAmp) {
             isHybridAmp = true
             hybridAmpPages.add(page)
@@ -620,6 +626,7 @@ export default async function build(
       })
     })
   )
+
   staticCheckWorkers.end()
 
   if (serverPropsPages.size > 0 || ssgPages.size > 0) {
@@ -824,6 +831,15 @@ export default async function build(
     if (!hasPages404 && useStatic404) {
       await moveExportedPage('/_error', '/404', '/404', false, 'html')
     }
+
+    writeFileSync(
+      `${distDir}/server/pages/sitemap.xml`,
+      '<shit></shit>',
+      'utf-8'
+    )
+    writeFileSync(`${dir}/sitemap.xml`, '<shit></shit>', 'utf-8')
+    console.log(sitemapEntries.values())
+    console.log(dir)
 
     for (const page of combinedPages) {
       const isSsg = ssgPages.has(page)
